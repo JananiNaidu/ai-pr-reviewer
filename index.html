@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AI PR Reviewer</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #0d1117;
+      color: #e6edf3;
+      min-height: 100vh;
+    }
+    header {
+      background: #161b22;
+      border-bottom: 1px solid #30363d;
+      padding: 16px 32px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    header h1 { font-size: 20px; font-weight: 600; }
+    header span { font-size: 24px; }
+    .container { max-width: 800px; margin: 48px auto; padding: 0 24px; }
+    .hero { text-align: center; margin-bottom: 48px; }
+    .hero h2 { font-size: 36px; font-weight: 700; margin-bottom: 12px; background: linear-gradient(90deg, #58a6ff, #bc8cff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .hero p { color: #8b949e; font-size: 16px; }
+    .card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 12px;
+      padding: 32px;
+      margin-bottom: 24px;
+    }
+    .form-group { margin-bottom: 20px; }
+    label { display: block; font-size: 14px; font-weight: 500; margin-bottom: 8px; color: #8b949e; }
+    input {
+      width: 100%;
+      padding: 10px 14px;
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      color: #e6edf3;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input:focus { border-color: #58a6ff; }
+    input::placeholder { color: #484f58; }
+    button {
+      width: 100%;
+      padding: 12px;
+      background: linear-gradient(90deg, #238636, #2ea043);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    button:hover { opacity: 0.85; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .result-card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 12px;
+      padding: 32px;
+      display: none;
+    }
+    .result-card h3 { font-size: 18px; margin-bottom: 16px; color: #58a6ff; }
+    .result-content {
+      white-space: pre-wrap;
+      font-size: 14px;
+      line-height: 1.7;
+      color: #e6edf3;
+    }
+    .badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      background: #1f6feb;
+      color: white;
+      margin-bottom: 16px;
+    }
+    .error {
+      background: #3d1a1a;
+      border: 1px solid #f85149;
+      border-radius: 8px;
+      padding: 16px;
+      color: #f85149;
+      display: none;
+      margin-top: 16px;
+    }
+    .loading {
+      text-align: center;
+      padding: 24px;
+      color: #8b949e;
+      display: none;
+    }
+    .spinner {
+      width: 32px;
+      height: 32px;
+      border: 3px solid #30363d;
+      border-top-color: #58a6ff;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 12px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    footer { text-align: center; padding: 32px; color: #484f58; font-size: 13px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <span>🤖</span>
+  <h1>AI PR Reviewer</h1>
+</header>
+
+<div class="container">
+  <div class="hero">
+    <h2>Review PRs with Claude AI</h2>
+    <p>Enter a GitHub Pull Request and get instant AI-powered code review</p>
+  </div>
+
+  <div class="card">
+    <div class="form-group">
+      <label>GitHub Repository (owner/repo)</label>
+      <input type="text" id="repo" placeholder="e.g. JananiNaidu/ai-pr-reviewer" />
+    </div>
+    <div class="form-group">
+      <label>Pull Request Number</label>
+      <input type="number" id="pr_number" placeholder="e.g. 1" />
+    </div>
+    <div class="form-group">
+      <label>Anthropic API Key</label>
+      <input type="password" id="api_key" placeholder="sk-ant-..." />
+    </div>
+    <div class="form-group">
+      <label>GitHub Token (optional — for private repos)</label>
+      <input type="password" id="github_token" placeholder="ghp_..." />
+    </div>
+    <button id="reviewBtn" onclick="reviewPR()">🔍 Review Pull Request</button>
+    <div class="error" id="error"></div>
+  </div>
+
+  <div class="loading" id="loading">
+    <div class="spinner"></div>
+    <p>Claude is reviewing your code...</p>
+  </div>
+
+  <div class="result-card" id="result">
+    <div class="badge" id="result-badge"></div>
+    <h3>📋 AI Code Review</h3>
+    <div class="result-content" id="result-content"></div>
+  </div>
+</div>
+
+<footer>Built with Claude AI + GitHub Actions · AI PR Reviewer</footer>
+
+<script>
+  async function reviewPR() {
+    const repo = document.getElementById('repo').value.trim();
+    const pr_number = document.getElementById('pr_number').value.trim();
+    const api_key = document.getElementById('api_key').value.trim();
+    const github_token = document.getElementById('github_token').value.trim();
+
+    const errorEl = document.getElementById('error');
+    const loadingEl = document.getElementById('loading');
+    const resultEl = document.getElementById('result');
+    const btn = document.getElementById('reviewBtn');
+
+    errorEl.style.display = 'none';
+    resultEl.style.display = 'none';
+
+    if (!repo || !pr_number) {
+      errorEl.textContent = '⚠️ Please fill in repo, PR number, and API key.';
+      errorEl.style.display = 'block';
+      return;
+    }
+
+    btn.disabled = true;
+    loadingEl.style.display = 'block';
+
+    try {
+      const response = await fetch('http://localhost:5000/review', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ repo, pr_number, api_key, github_token })
+      });
+
+      const data = await response.json();
+
+      if (data.error) {
+        errorEl.textContent = '❌ ' + data.error;
+        errorEl.style.display = 'block';
+      } else {
+        document.getElementById('result-badge').textContent = `${repo} · PR #${pr_number}`;
+        document.getElementById('result-content').textContent = data.review;
+        resultEl.style.display = 'block';
+      }
+    } catch (err) {
+      errorEl.textContent = '❌ Could not connect to backend. Make sure Flask is running!';
+      errorEl.style.display = 'block';
+    } finally {
+      btn.disabled = false;
+      loadingEl.style.display = 'none';
+    }
+  }
+</script>
+
+</body>
+</html>
