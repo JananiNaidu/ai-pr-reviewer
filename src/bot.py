@@ -1,8 +1,9 @@
 import os
 import requests
+import google.generativeai as genai
 
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN")
-ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
 def get_pr_diff(repo, pr_number):
     url = f"https://api.github.com/repos/{repo}/pulls/{pr_number}/files"
@@ -19,25 +20,35 @@ def get_pr_diff(repo, pr_number):
         diff_text += file.get("patch", "No changes")
     return diff_text
 
-def review_with_claude(diff):
-    url = "https://api.anthropic.com/v1/messages"
-    headers = {
-        "x-api-key": ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01",
-        "content-type": "application/json"
-    }
-    body = {
-        "model": "claude-sonnet-4-6",
-        "max_tokens": 1024,
-        "messages": [
-            {
-                "role": "user",
-                "content": f"Review this code diff and give feedback on bugs, security issues, and improvements:\n\n{diff}"
-            }
-        ]
-    }
-    response = requests.post(url, headers=headers, json=body)
-    return response.json()["content"][0]["text"]
+def review_with_gemini(diff):
+    genai.configure(api_key=GEMINI_API_KEY)
+    model = genai.GenerativeModel("gemini-1.5-flash")
+    
+    prompt = f"""You are an expert code reviewer. Review this PR diff and provide feedback in this format:
+
+## 🔍 Code Review Summary
+
+### ✅ What looks good
+- List positive aspects
+
+### 🐛 Bugs & Issues
+- List any bugs or potential issues
+
+### 🔒 Security Concerns
+- List any security issues
+
+### 💡 Improvements
+- List suggestions for improvement
+
+### 📊 Overall Rating
+Rate the code quality from 1-10 and explain why.
+
+Here is the diff to review:
+
+{diff}"""
+
+    response = model.generate_content(prompt)
+    return response.text
 
 def post_comment(repo, pr_number, comment):
     url = f"https://api.github.com/repos/{repo}/issues/{pr_number}/comments"
@@ -55,5 +66,5 @@ if __name__ == "__main__":
     
     print(f"🔍 Reviewing PR #{pr_number} in {repo}...")
     diff = get_pr_diff(repo, pr_number)
-    review = review_with_claude(diff)
+    review = review_with_gemini(diff)
     post_comment(repo, pr_number, review)
