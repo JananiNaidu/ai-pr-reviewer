@@ -22,8 +22,7 @@ def get_pr_diff(repo, pr_number):
 
 def review_with_gemini(diff):
     genai.configure(api_key=GEMINI_API_KEY)
-    model = genai.GenerativeModel("gemini-1.5-flash")
-    
+    model = genai.GenerativeModel("gemini-2.0-flash")
     prompt = f"""You are an expert code reviewer. Review this PR diff and provide feedback in this format:
 
 ## 🔍 Code Review Summary
