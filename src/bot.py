@@ -22,8 +22,7 @@ def get_pr_diff(repo, pr_number):
 
 def review_with_gemini(diff):
     genai.configure(api_key=GEMINI_API_KEY)
-    model = genai.GenerativeModel("gemini-pro")
-    
+    model = genai.GenerativeModel("gemini-1.0-pro")
     prompt = f"""You are an expert code reviewer. Review this PR diff and provide feedback in this format:
 
 ## 🔍 Code Review Summary
@@ -47,7 +46,7 @@ Here is the diff to review:
 
 {diff}"""
 
-    response = model.generate_content(prompt)
+    response =model.generate_content(prompt)
     return response.text
 
 def post_comment(repo, pr_number, comment):
