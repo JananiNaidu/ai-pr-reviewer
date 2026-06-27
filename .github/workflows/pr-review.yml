@@ -18,7 +18,6 @@ jobs:
 
       - name: Install dependencies
         run: pip install requests google-generativeai
-
       - name: Run AI PR Reviewer
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

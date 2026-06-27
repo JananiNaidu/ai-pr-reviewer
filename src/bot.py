@@ -1,6 +1,6 @@
 import os
 import requests
-from google import genai
+import google.generativeai as genai
 
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
@@ -21,7 +21,8 @@ def get_pr_diff(repo, pr_number):
     return diff_text
 
 def review_with_gemini(diff):
-    client = genai.Client(api_key=GEMINI_API_KEY)
+    genai.configure(api_key=GEMINI_API_KEY)
+    model = genai.GenerativeModel("gemini-pro")
     
     prompt = f"""You are an expert code reviewer. Review this PR diff and provide feedback in this format:
 
@@ -46,10 +47,7 @@ Here is the diff to review:
 
 {diff}"""
 
-    response = client.models.generate_content(
-        model="gemini-2.0-flash",
-        contents=prompt
-    )
+    response = model.generate_content(prompt)
     return response.text
 
 def post_comment(repo, pr_number, comment):
