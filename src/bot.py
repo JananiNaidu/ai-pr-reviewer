@@ -25,7 +25,7 @@ def review_with_openrouter(diff):
         "Content-Type": "application/json"
     }
     body = {
-        "model": "google/gemini-2.0-flash-exp:free",
+        "model": "mistralai/mistral-7b-instruct:free",
         "messages": [
             {
                 "role": "user",
