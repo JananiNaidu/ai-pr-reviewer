@@ -45,7 +45,7 @@ Here is the diff to review:
 {diff}"""
 
     response = client.models.generate_content(
-        model="gemini-1.5-flash-latest",
+        model="models/gemini-1.5-flash",
         contents=prompt
     )
     return response.text
