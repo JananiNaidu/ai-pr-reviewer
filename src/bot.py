@@ -2,7 +2,7 @@ import os
 import requests
 
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN")
-OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 
 def get_pr_diff(repo, pr_number):
     url = f"https://api.github.com/repos/{repo}/pulls/{pr_number}/files"
@@ -16,16 +16,16 @@ def get_pr_diff(repo, pr_number):
     for file in files:
         diff_text += f"\nFile: {file['filename']}\n"
         diff_text += file.get("patch", "No changes")
-    return diff_text
+    return diff_text[:3000]
 
-def review_with_openrouter(diff):
-    url = "https://openrouter.ai/api/v1/chat/completions"
+def review_with_groq(diff):
+    url = "https://api.groq.com/openai/v1/chat/completions"
     headers = {
-        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+        "Authorization": f"Bearer {GROQ_API_KEY}",
         "Content-Type": "application/json"
     }
     body = {
-        "model": "mistralai/mistral-7b-instruct:free",
+        "model": "llama-3.1-8b-instant",
         "messages": [
             {
                 "role": "user",
@@ -55,12 +55,7 @@ Here is the diff to review:
         ]
     }
     response = requests.post(url, headers=headers, json=body)
-    result = response.json()
-    if "choices" in result:
-        return result["choices"][0]["message"]["content"]
-    else:
-        print("API Response:", result)
-        raise Exception(f"API Error: {result}")
+    return response.json()["choices"][0]["message"]["content"]
 
 def post_comment(repo, pr_number, comment):
     url = f"https://api.github.com/repos/{repo}/issues/{pr_number}/comments"
@@ -77,5 +72,5 @@ if __name__ == "__main__":
     pr_number = os.environ.get("PR_NUMBER")
     print(f"🔍 Reviewing PR #{pr_number} in {repo}...")
     diff = get_pr_diff(repo, pr_number)
-    review = review_with_openrouter(diff)
+    review = review_with_groq(diff)
     post_comment(repo, pr_number, review)
