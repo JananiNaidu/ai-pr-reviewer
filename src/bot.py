@@ -55,7 +55,12 @@ Here is the diff to review:
         ]
     }
     response = requests.post(url, headers=headers, json=body)
-    return response.json()["choices"][0]["message"]["content"]
+    result = response.json()
+    if "choices" in result:
+        return result["choices"][0]["message"]["content"]
+    else:
+        print("API Response:", result)
+        raise Exception(f"API Error: {result}")
 
 def post_comment(repo, pr_number, comment):
     url = f"https://api.github.com/repos/{repo}/issues/{pr_number}/comments"
