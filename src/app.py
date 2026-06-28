@@ -6,32 +6,7 @@ import os
 app = Flask(__name__)
 CORS(app)
 
-DEMO_REVIEW = """## 🔍 Code Review Summary
-
-### ✅ What looks good
-- Clean and readable code structure
-- Good use of functions and separation of concerns
-- Consistent naming conventions followed throughout
-
-### 🐛 Bugs & Issues
-- Missing error handling for edge cases in the main function
-- Potential null reference on line 23 if API returns empty response
-- Loop condition may cause off-by-one error
-
-### 🔒 Security Concerns
-- API key is hardcoded — should be moved to environment variables
-- No input validation on user-provided parameters
-- Consider adding rate limiting to prevent abuse
-
-### 💡 Improvements
-- Add unit tests for core functions
-- Consider using async/await for better performance
-- Add logging for easier debugging in production
-- Break down large functions into smaller, testable units
-
-### 📊 Overall Rating
-**7/10** — The code is functional and readable, but needs better error handling, 
-security improvements, and test coverage before production deployment."""
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 
 def get_pr_diff(repo, pr_number, github_token=None):
     url = f"https://api.github.com/repos/{repo}/pulls/{pr_number}/files"
@@ -48,18 +23,16 @@ def get_pr_diff(repo, pr_number, github_token=None):
     for file in files:
         diff_text += f"\nFile: {file['filename']}\n"
         diff_text += file.get("patch", "No changes")
-    return diff_text, None
+    return diff_text[:3000], None
 
-def review_with_claude(diff, api_key):
-    url = "https://api.anthropic.com/v1/messages"
+def review_with_groq(diff, api_key):
+    url = "https://api.groq.com/openai/v1/chat/completions"
     headers = {
-        "x-api-key": api_key,
-        "anthropic-version": "2023-06-01",
-        "content-type": "application/json"
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
     }
     body = {
-        "model": "claude-sonnet-4-6",
-        "max_tokens": 1024,
+        "model": "llama-3.1-8b-instant",
         "messages": [
             {
                 "role": "user",
@@ -90,24 +63,23 @@ Here is the diff to review:
     }
     response = requests.post(url, headers=headers, json=body)
     if response.status_code != 200:
-        return None, f"Claude API error: {response.status_code}"
-    return response.json()["content"][0]["text"], None
+        return None, f"Groq API error: {response.status_code} - {response.text}"
+    return response.json()["choices"][0]["message"]["content"], None
 
 @app.route("/review", methods=["POST"])
 def review():
     data = request.json
     repo = data.get("repo")
     pr_number = data.get("pr_number")
-    api_key = data.get("api_key") or os.environ.get("ANTHROPIC_API_KEY")
-    github_token = data.get("github_token") or os.environ.get("GITHUB_TOKEN")
+    api_key = data.get("api_key") or GROQ_API_KEY
+    github_token = data.get("github_token")
 
     if not repo or not pr_number:
         return jsonify({"error": "repo and pr_number are required"}), 400
 
-    # Demo mode - no API key needed
     if not api_key:
         return jsonify({
-            "review": DEMO_REVIEW,
+            "review": "## 🤖 Demo Review\n\n### ✅ What looks good\n- Clean code structure\n\n### 📊 Overall Rating\n**Demo mode** - Add a Groq API key for real reviews!",
             "repo": repo,
             "pr_number": pr_number,
             "mode": "demo"
@@ -117,7 +89,7 @@ def review():
     if error:
         return jsonify({"error": error}), 400
 
-    review, error = review_with_claude(diff, api_key)
+    review, error = review_with_groq(diff, api_key)
     if error:
         return jsonify({"error": error}), 400
 
@@ -125,7 +97,7 @@ def review():
 
 @app.route("/health", methods=["GET"])
 def health():
-    return jsonify({"status": "ok", "message": "AI PR Reviewer is running!"})
+    return jsonify({"status": "ok"})
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
