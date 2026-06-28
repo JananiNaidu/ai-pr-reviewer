@@ -1,9 +1,8 @@
 import os
 import requests
-from google import genai as google_genai
 
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN")
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
 
 def get_pr_diff(repo, pr_number):
     url = f"https://api.github.com/repos/{repo}/pulls/{pr_number}/files"
@@ -19,9 +18,18 @@ def get_pr_diff(repo, pr_number):
         diff_text += file.get("patch", "No changes")
     return diff_text
 
-def review_with_gemini(diff):
-    client = google_genai.Client(api_key=GEMINI_API_KEY)
-    prompt = f"""You are an expert code reviewer. Review this PR diff and provide feedback in this format:
+def review_with_openrouter(diff):
+    url = "https://openrouter.ai/api/v1/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+        "Content-Type": "application/json"
+    }
+    body = {
+        "model": "google/gemini-2.0-flash-exp:free",
+        "messages": [
+            {
+                "role": "user",
+                "content": f"""You are an expert code reviewer. Review this PR diff and provide feedback in this format:
 
 ## 🔍 Code Review Summary
 
@@ -43,12 +51,11 @@ Rate the code quality from 1-10 and explain why.
 Here is the diff to review:
 
 {diff}"""
-
-    response = client.models.generate_content(
-        model="gemini-2.0-flash-lite",
-        contents=prompt
-    )
-    return response.text
+            }
+        ]
+    }
+    response = requests.post(url, headers=headers, json=body)
+    return response.json()["choices"][0]["message"]["content"]
 
 def post_comment(repo, pr_number, comment):
     url = f"https://api.github.com/repos/{repo}/issues/{pr_number}/comments"
@@ -65,5 +72,5 @@ if __name__ == "__main__":
     pr_number = os.environ.get("PR_NUMBER")
     print(f"🔍 Reviewing PR #{pr_number} in {repo}...")
     diff = get_pr_diff(repo, pr_number)
-    review = review_with_gemini(diff)
+    review = review_with_openrouter(diff)
     post_comment(repo, pr_number, review)
